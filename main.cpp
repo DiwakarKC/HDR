@@ -2,6 +2,7 @@
 #include<opencv2/opencv.hpp>
 #include<filesystem>
 #include <cstdlib>
+#include<future>
 
 using namespace std;
 using namespace cv;
@@ -24,7 +25,7 @@ struct Parameters
 
 };
 
-void gamma_lut(int& val,Mat& input,Mat& output)
+void gamma_lut(int& val,const Mat& input,Mat& output)
 {
     output = Mat(input.rows,input.cols,CV_8UC3);
     int gam[256];
@@ -233,9 +234,11 @@ void Clahe(int& ClipLimit,Mat& image,Mat& Clahe_out)
     int lut_r[8][8][256],lut_g[8][8][256],lut_b[8][8][256];
     int excess_r[8],excess_g[8],excess_b[8];
     int cdf_r[8][256],cdf_g[8][256],cdf_b[8][256];
-    int redis_r=0,redis_g=0,redis_b=0;
+    int redis_r[8],redis_g[8],redis_b[8];
     int tile_h = image.rows/8;
     int tile_w = image.cols/8;
+    unsigned char B=0,G=0,R=0;
+    unsigned int tile_total = tile_h*tile_w;
 
     memset(hist_r,0,sizeof(hist_r));
     memset(hist_g,0,sizeof(hist_g));
@@ -252,26 +255,91 @@ void Clahe(int& ClipLimit,Mat& image,Mat& Clahe_out)
         memset(cdf_r,0,sizeof(cdf_r));
         memset(cdf_g,0,sizeof(cdf_g));
         memset(cdf_b,0,sizeof(cdf_b));
+        memset(redis_r,0,sizeof(redis_r));
+        memset(redis_g,0,sizeof(redis_g));
+        memset(redis_b,0,sizeof(redis_b));
 
         int a = tile_h*i;
 
-        for(int j=0; j<8; j++)
-        {
-            for(int y=0; y<tile_h; y++)
-            {
-                for(int x=0; x<tile_w; x++)
-                {
-                    Vec3b pixels = image.at<Vec3b>(y+a,x+(tile_w*j));
-                    unsigned char B = pixels[0];
-                    unsigned char G = pixels[1];
-                    unsigned char R = pixels[2];
 
-                    hist_b[i][j][B] = hist_b[i][j][B]+1;
-                    hist_g[i][j][G] = hist_g[i][j][G]+1;
-                    hist_r[i][j][R] = hist_r[i][j][R]+1;
-                }
+        for(int y=0; y<tile_h; y++)
+        {
+            for(int x=0; x<tile_w; x++)
+            {
+                Vec3b pixels = image.at<Vec3b>(y+a,x);
+                B = pixels[0];
+                G = pixels[1];
+                R = pixels[2];
+
+                hist_b[i][0][B] = hist_b[i][0][B]+1;
+                hist_g[i][0][G] = hist_g[i][0][G]+1;
+                hist_r[i][0][R] = hist_r[i][0][R]+1;
+
+                pixels = image.at<Vec3b>(y+a,x+(tile_w*1));
+                B = pixels[0];
+                G = pixels[1];
+                R = pixels[2];
+
+                hist_b[i][1][B] = hist_b[i][1][B]+1;
+                hist_g[i][1][G] = hist_g[i][1][G]+1;
+                hist_r[i][1][R] = hist_r[i][1][R]+1;
+
+                pixels = image.at<Vec3b>(y+a,x+(tile_w*2));
+                B = pixels[0];
+                G = pixels[1];
+                R = pixels[2];
+
+                hist_b[i][2][B] = hist_b[i][2][B]+1;
+                hist_g[i][2][G] = hist_g[i][2][G]+1;
+                hist_r[i][2][R] = hist_r[i][2][R]+1;
+
+                pixels = image.at<Vec3b>(y+a,x+(tile_w*3));
+                B = pixels[0];
+                G = pixels[1];
+                R = pixels[2];
+
+                hist_b[i][3][B] = hist_b[i][3][B]+1;
+                hist_g[i][3][G] = hist_g[i][3][G]+1;
+                hist_r[i][3][R] = hist_r[i][3][R]+1;
+
+                pixels = image.at<Vec3b>(y+a,x+(tile_w*4));
+                B = pixels[0];
+                G = pixels[1];
+                R = pixels[2];
+
+                hist_b[i][4][B] = hist_b[i][4][B]+1;
+                hist_g[i][4][G] = hist_g[i][4][G]+1;
+                hist_r[i][4][R] = hist_r[i][4][R]+1;
+
+                pixels = image.at<Vec3b>(y+a,x+(tile_w*5));
+                B = pixels[0];
+                G = pixels[1];
+                R = pixels[2];
+
+                hist_b[i][5][B] = hist_b[i][5][B]+1;
+                hist_g[i][5][G] = hist_g[i][5][G]+1;
+                hist_r[i][5][R] = hist_r[i][5][R]+1;
+
+                pixels = image.at<Vec3b>(y+a,x+(tile_w*6));
+                B = pixels[0];
+                G = pixels[1];
+                R = pixels[2];
+
+                hist_b[i][6][B] = hist_b[i][6][B]+1;
+                hist_g[i][6][G] = hist_g[i][6][G]+1;
+                hist_r[i][6][R] = hist_r[i][6][R]+1;
+
+                pixels = image.at<Vec3b>(y+a,x+(tile_w*7));
+                B = pixels[0];
+                G = pixels[1];
+                R = pixels[2];
+
+                hist_b[i][7][B] = hist_b[i][7][B]+1;
+                hist_g[i][7][G] = hist_g[i][7][G]+1;
+                hist_r[i][7][R] = hist_r[i][7][R]+1;
             }
         }
+
         for(int j=0; j<8; j++)
         {
             for(int m=0; m<256; m++)
@@ -293,43 +361,177 @@ void Clahe(int& ClipLimit,Mat& image,Mat& Clahe_out)
                 }
             }
         }
-        for(int j=0; j<8; j++)
-        {
-            redis_b = excess_b[j]/256;
-            redis_g = excess_g[j]/256;
-            redis_r = excess_r[j]/256;
-            for(int m=0; m<256; m++)
-            {
-                hist_b[i][j][m] += redis_b;
-                hist_g[i][j][m] += redis_g;
-                hist_r[i][j][m] += redis_r;
-            }
-            redis_b = 0;
-            redis_g = 0;
-            redis_r = 0;
-        }
-        for(int j=0; j<8; j++)
-        {
-            cdf_b[j][0] = hist_b[i][j][0];
-            cdf_g[j][0] = hist_g[i][j][0];
-            cdf_r[j][0] = hist_r[i][j][0];
-            for(int m =1; m<256; m++)
-            {
-                cdf_b[j][m] =cdf_b[j][m-1] +  hist_b[i][j][m];
-                cdf_g[j][m] =cdf_g[j][m-1] +  hist_g[i][j][m];
-                cdf_r[j][m] =cdf_r[j][m-1] +  hist_r[i][j][m];
-            }
-        }
-        for(int j=0; j<8; j++)
-        {
-            for(int m=0; m<256; m++)
-            {
-                lut_b[i][j][m] = (cdf_b[j][m] * 255)/(tile_h*tile_w);
-                lut_g[i][j][m] = (cdf_g[j][m] * 255)/(tile_h*tile_w);
-                lut_r[i][j][m] = (cdf_r[j][m] * 255)/(tile_h*tile_w);
+        // Residual limit redistribute
+        redis_b[0] = excess_b[0]/256;
+        redis_g[0] = excess_g[0]/256;
+        redis_r[0] = excess_r[0]/256;
 
-            }
+        redis_b[1] = excess_b[1]/256;
+        redis_g[1] = excess_g[1]/256;
+        redis_r[1] = excess_r[1]/256;
+
+        redis_b[2] = excess_b[2]/256;
+        redis_g[2] = excess_g[2]/256;
+        redis_r[2] = excess_r[2]/256;
+
+        redis_b[3] = excess_b[3]/256;
+        redis_g[3] = excess_g[3]/256;
+        redis_r[3] = excess_r[3]/256;
+
+        redis_b[4] = excess_b[4]/256;
+        redis_g[4] = excess_g[4]/256;
+        redis_r[4] = excess_r[4]/256;
+
+        redis_b[5] = excess_b[5]/256;
+        redis_g[5] = excess_g[5]/256;
+        redis_r[5] = excess_r[5]/256;
+
+        redis_b[6] = excess_b[6]/256;
+        redis_g[6] = excess_g[6]/256;
+        redis_r[6] = excess_r[6]/256;
+
+        redis_b[7] = excess_b[7]/256;
+        redis_g[7] = excess_g[7]/256;
+        redis_r[7] = excess_r[7]/256;
+        for(int m=0; m<256; m++)
+        {
+            hist_b[i][0][m] += redis_b[0];
+            hist_g[i][0][m] += redis_g[0];
+            hist_r[i][0][m] += redis_r[0];
+
+            hist_b[i][1][m] += redis_b[1];
+            hist_g[i][1][m] += redis_g[1];
+            hist_r[i][1][m] += redis_r[1];
+
+            hist_b[i][2][m] += redis_b[2];
+            hist_g[i][2][m] += redis_g[2];
+            hist_r[i][2][m] += redis_r[2];
+
+            hist_b[i][3][m] += redis_b[3];
+            hist_g[i][3][m] += redis_g[3];
+            hist_r[i][3][m] += redis_r[3];
+
+            hist_b[i][4][m] += redis_b[4];
+            hist_g[i][4][m] += redis_g[4];
+            hist_r[i][4][m] += redis_r[4];
+
+            hist_b[i][5][m] += redis_b[5];
+            hist_g[i][5][m] += redis_g[5];
+            hist_r[i][5][m] += redis_r[5];
+
+            hist_b[i][6][m] += redis_b[6];
+            hist_g[i][6][m] += redis_g[6];
+            hist_r[i][6][m] += redis_r[6];
+
+            hist_b[i][7][m] += redis_b[7];
+            hist_g[i][7][m] += redis_g[7];
+            hist_r[i][7][m] += redis_r[7];
         }
+
+//------------------CDF calculation--------------------------------
+
+        cdf_b[0][0] = hist_b[i][0][0];
+        cdf_g[0][0] = hist_g[i][0][0];
+        cdf_r[0][0] = hist_r[i][0][0];
+
+        cdf_b[1][0] = hist_b[i][1][0];
+        cdf_g[1][0] = hist_g[i][1][0];
+        cdf_r[1][0] = hist_r[i][1][0];
+
+        cdf_b[2][0] = hist_b[i][2][0];
+        cdf_g[2][0] = hist_g[i][2][0];
+        cdf_r[2][0] = hist_r[i][2][0];
+
+        cdf_b[3][0] = hist_b[i][3][0];
+        cdf_g[3][0] = hist_g[i][3][0];
+        cdf_r[3][0] = hist_r[i][3][0];
+
+        cdf_b[4][0] = hist_b[i][4][0];
+        cdf_g[4][0] = hist_g[i][4][0];
+        cdf_r[4][0] = hist_r[i][4][0];
+
+        cdf_b[5][0] = hist_b[i][5][0];
+        cdf_g[5][0] = hist_g[i][5][0];
+        cdf_r[5][0] = hist_r[i][5][0];
+
+        cdf_b[6][0] = hist_b[i][6][0];
+        cdf_g[6][0] = hist_g[i][6][0];
+        cdf_r[6][0] = hist_r[i][6][0];
+
+        cdf_b[7][0] = hist_b[i][7][0];
+        cdf_g[7][0] = hist_g[i][7][0];
+        cdf_r[7][0] = hist_r[i][7][0];
+        for(int m =1; m<256; m++)
+        {
+            cdf_b[0][m] =cdf_b[0][m-1] +  hist_b[i][0][m];
+            cdf_g[0][m] =cdf_g[0][m-1] +  hist_g[i][0][m];
+            cdf_r[0][m] =cdf_r[0][m-1] +  hist_r[i][0][m];
+
+            cdf_b[1][m] =cdf_b[1][m-1] +  hist_b[i][1][m];
+            cdf_g[1][m] =cdf_g[1][m-1] +  hist_g[i][1][m];
+            cdf_r[1][m] =cdf_r[1][m-1] +  hist_r[i][1][m];
+
+            cdf_b[2][m] =cdf_b[2][m-1] +  hist_b[i][2][m];
+            cdf_g[2][m] =cdf_g[2][m-1] +  hist_g[i][2][m];
+            cdf_r[2][m] =cdf_r[2][m-1] +  hist_r[i][2][m];
+
+            cdf_b[3][m] =cdf_b[3][m-1] +  hist_b[i][3][m];
+            cdf_g[3][m] =cdf_g[3][m-1] +  hist_g[i][3][m];
+            cdf_r[3][m] =cdf_r[3][m-1] +  hist_r[i][3][m];
+
+            cdf_b[4][m] =cdf_b[4][m-1] +  hist_b[i][4][m];
+            cdf_g[4][m] =cdf_g[4][m-1] +  hist_g[i][4][m];
+            cdf_r[4][m] =cdf_r[4][m-1] +  hist_r[i][4][m];
+
+            cdf_b[5][m] =cdf_b[5][m-1] +  hist_b[i][5][m];
+            cdf_g[5][m] =cdf_g[5][m-1] +  hist_g[i][5][m];
+            cdf_r[5][m] =cdf_r[5][m-1] +  hist_r[i][5][m];
+
+            cdf_b[6][m] =cdf_b[6][m-1] +  hist_b[i][6][m];
+            cdf_g[6][m] =cdf_g[6][m-1] +  hist_g[i][6][m];
+            cdf_r[6][m] =cdf_r[6][m-1] +  hist_r[i][6][m];
+
+            cdf_b[7][m] =cdf_b[7][m-1] +  hist_b[i][7][m];
+            cdf_g[7][m] =cdf_g[7][m-1] +  hist_g[i][7][m];
+            cdf_r[7][m] =cdf_r[7][m-1] +  hist_r[i][7][m];
+        }
+//----------------LUT calculatin-----------------------------------------
+        for(int m=0; m<256; m++)
+        {
+            lut_b[i][0][m] = (cdf_b[0][m] * 255)/(tile_total);
+            lut_g[i][0][m] = (cdf_g[0][m] * 255)/(tile_total);
+            lut_r[i][0][m] = (cdf_r[0][m] * 255)/(tile_total);
+
+            lut_b[i][1][m] = (cdf_b[1][m] * 255)/(tile_total);
+            lut_g[i][1][m] = (cdf_g[1][m] * 255)/(tile_total);
+            lut_r[i][1][m] = (cdf_r[1][m] * 255)/(tile_total);
+
+            lut_b[i][2][m] = (cdf_b[2][m] * 255)/(tile_total);
+            lut_g[i][2][m] = (cdf_g[2][m] * 255)/(tile_total);
+            lut_r[i][2][m] = (cdf_r[2][m] * 255)/(tile_total);
+
+            lut_b[i][3][m] = (cdf_b[3][m] * 255)/(tile_total);
+            lut_g[i][3][m] = (cdf_g[3][m] * 255)/(tile_total);
+            lut_r[i][3][m] = (cdf_r[3][m] * 255)/(tile_total);
+
+            lut_b[i][4][m] = (cdf_b[4][m] * 255)/(tile_total);
+            lut_g[i][4][m] = (cdf_g[4][m] * 255)/(tile_total);
+            lut_r[i][4][m] = (cdf_r[4][m] * 255)/(tile_total);
+
+            lut_b[i][5][m] = (cdf_b[5][m] * 255)/(tile_total);
+            lut_g[i][5][m] = (cdf_g[5][m] * 255)/(tile_total);
+            lut_r[i][5][m] = (cdf_r[5][m] * 255)/(tile_total);
+
+            lut_b[i][6][m] = (cdf_b[6][m] * 255)/(tile_total);
+            lut_g[i][6][m] = (cdf_g[6][m] * 255)/(tile_total);
+            lut_r[i][6][m] = (cdf_r[6][m] * 255)/(tile_total);
+
+            lut_b[i][7][m] = (cdf_b[7][m] * 255)/(tile_total);
+            lut_g[i][7][m] = (cdf_g[7][m] * 255)/(tile_total);
+            lut_r[i][7][m] = (cdf_r[7][m] * 255)/(tile_total);
+
+        }
+
     }
     for(int y=0; y<image.rows; y++)
     {
@@ -393,74 +595,21 @@ void onParameterchange(int,void* userdata)
     imshow("Output",data->final_output);
 
 }
+Mat frameprocess(const Mat& input,int gam,int cliplimit,int st,int c,int level)
+{
+    Mat gammaout;
+    Mat claheout;
+    Mat sigout;
+    Mat finalout;
 
-//// Using the keyboard to change the value of variables(cliplimit,gamma etc)
-//int main()
-//{
-//    int val=5,st=8,c=5,limit=50;
-//
-//    Mat input = imread("image.bmp");
-//    Mat output = Mat::zeros(input.size(),input.type());
-//
-//    Mat clahe_output = Mat::zeros(input.size(),input.type());
-//    Mat Sigmoid_output = Mat::zeros(input.size(),input.type());
-//    Mat WBC_output = Mat::zeros(input.size(),input.type());
-//
-//
-//    if(input.empty())
-//    {
-//        cout<<"Invalid Input Image";
-//        return -1;
-//    }
-//    while(true)
-//    {
-//        char key = waitKey(0);
-//
-//        if(key=='q')
-//            break;
-//
-//        else if(key=='+')
-//            limit = min(250,limit+10);
-//
-//        else if(key=='-')
-//            limit = max(0,limit-10);
-//
-//        else if(key=='i')
-//            val = min(10,val+1);
-//
-//        else if(key=='k')
-//            val = max(0,val-1);
-//
-//        else if(key=='u')
-//            st = min(15,st+1);
-//
-//        else if(key=='j')
-//            st = max(0,st-1);
-//
-//        else if(key=='o')
-//            c = min(10,c+1);
-//
-//        else if(key=='l')
-//            c = max(0,c-1);
-//
-//        cout<<"Climit = "<<limit<<endl;
-//        cout<<"Val = "<<val<<endl;
-//        cout<<"St = "<<st<<endl;
-//        cout<<"C = "<<c<<endl;
-//
-//        gamma_lut(val,input,output);
-//        Clahe(limit,output,clahe_output);
-//        Sigmoid_TM(st,c,clahe_output,Sigmoid_output);
-//        WBC(Sigmoid_output,WBC_output);
-//
-//        imshow("input",input);
-//        imshow("final_output",WBC_output);
-//    }
-//    imwrite("gamma_output.jpg",output);
-//    imwrite("clahe_output.jpg",clahe_output);
-//    imwrite("final_output.jpg",WBC_output);
-//    return 0;
-//}
+    gamma_lut(gam,input,gammaout);
+    Clahe(cliplimit,gammaout,claheout);
+    Sigmoid_TM(st,c,claheout,sigout);
+    unmask_sharp(level,sigout,finalout);
+
+    return finalout;
+
+}
 
 // Using the OpenCV Trackbar to change the value of variables(cliplimit,gamma etc)
 int main()
@@ -491,7 +640,7 @@ int main()
 //                       "-acodec copy "
 //                       "audio.aac";
 
-     string command_in ="ffmpeg -y "
+    string command_in ="ffmpeg -y "
                        "-i \"" + input_path.string() + "\" "
                        "-vn "
                        "-c:a aac "
@@ -550,13 +699,7 @@ int main()
         }
     }
 
-    data.input = frame;
-//    Mat output = Mat::zeros(input.size(),input.type());
-//
-//    Mat clahe_output = Mat::zeros(input.size(),input.type());
-//    Mat Sigmoid_output = Mat::zeros(input.size(),input.type());
-//    Mat WBC_output = Mat::zeros(input.size(),input.type());
-
+    data.input = frame.clone();
 
     if(data.input.empty())
     {
@@ -585,25 +728,35 @@ int main()
     // To restart the video frame reading from 0
     vid.set(CAP_PROP_POS_FRAMES,0);
 
-    while(vid.read(frame))
+    Mat frame1;
+    Mat frame2;
+
+    while(true)
     {
-        data.input = frame;
-        if(data.input.empty())
+        if(!vid.read(frame1))
         {
-            cout << "No input image for reading for HDR processing side" << endl;
-            return -1;
+            break;
         }
-        gamma_lut(data.val,data.input,data.output);
-        Clahe(data.cliplimit,data.output,data.Clahe_output);
-        Sigmoid_TM(data.st,data.c,data.Clahe_output,data.Sig_output);
-        unmask_sharp(data.level,data.Sig_output,data.final_output);
-//        WBC(data.Sig_output,data.final_output);
-        writer.write(data.final_output);
+        bool hasframe2 = vid.read(frame2);
+        future<Mat> future1 = async(launch::async,frameprocess,frame1.clone(),data.val,data.cliplimit,data.st,data.c,data.level);
+        future<Mat> future2;
+        if(hasframe2)
+        {
+            future2 = async(launch::async,frameprocess,frame2.clone(),data.val,data.cliplimit,data.st,data.c,data.level);
+        }
+        Mat result1 = future1.get();
+        writer.write(result1);
+        if(hasframe2)
+        {
+            Mat result2 = future2.get();
+            writer.write(result2);
+        }
         count++;
         cout <<count<<endl;
-//        imshow("Video",data.Sig_output);
-//        if(waitKey(30)==27) // esc button
-//            break;
+        if(!hasframe2)
+        {
+            break;
+        }
     }
     // Releasing the input and output video to complete them
     vid.release();
