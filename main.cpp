@@ -25,14 +25,10 @@ struct Parameters
 
 };
 
-void gamma_lut(int& val,const Mat& input,Mat& output)
+void gamma_lut(int gam[],const Mat& input,Mat& output)
 {
     output = Mat(input.rows,input.cols,CV_8UC3);
-    int gam[256];
-    for(int i=0; i<256; i++)
-    {
-        gam[i] = 255 * pow(i/255.0,val/10.0);
-    }
+
     for(int y=0; y<input.rows; y++)
     {
         for(int x=0; x<input.cols; x++)
@@ -587,7 +583,12 @@ void onParameterchange(int,void* userdata)
     data->st = getTrackbarPos("Strength","Parameters");
     data->c = getTrackbarPos("Center","Parameters");
     data->level = getTrackbarPos("Sharp","Parameters");
-    gamma_lut(data->val,data->input,data->output);
+    int gam[256];
+    for(int i=0; i<256; i++)
+    {
+        gam[i] = 255 * pow(i/255.0,(data->val)/10.0);
+    }
+    gamma_lut(gam,data->input,data->output);
     Clahe(data->cliplimit,data->output,data->Clahe_output);
     Sigmoid_TM(data->st,data->c,data->Clahe_output,data->Sig_output);
     unmask_sharp(data->level,data->Sig_output,data->final_output);
@@ -595,7 +596,7 @@ void onParameterchange(int,void* userdata)
     imshow("Output",data->final_output);
 
 }
-Mat frameprocess(const Mat& input,int gam,int cliplimit,int st,int c,int level)
+Mat frameprocess(const Mat& input,int gam[],int cliplimit,int st,int c,int level)
 {
     Mat gammaout;
     Mat claheout;
@@ -730,6 +731,13 @@ int main()
 
     Mat frame1;
     Mat frame2;
+    Mat frame3;
+
+    int gam[256];
+    for(int i=0; i<256; i++)
+    {
+        gam[i] = 255 * pow(i/255.0,data.val/10.0);
+    }
 
     while(true)
     {
@@ -738,11 +746,17 @@ int main()
             break;
         }
         bool hasframe2 = vid.read(frame2);
-        future<Mat> future1 = async(launch::async,frameprocess,frame1.clone(),data.val,data.cliplimit,data.st,data.c,data.level);
+        bool hasframe3 = vid.read(frame3);
+        future<Mat> future1 = async(launch::async,frameprocess,frame1.clone(),gam,data.cliplimit,data.st,data.c,data.level);
         future<Mat> future2;
         if(hasframe2)
         {
-            future2 = async(launch::async,frameprocess,frame2.clone(),data.val,data.cliplimit,data.st,data.c,data.level);
+            future2 = async(launch::async,frameprocess,frame2.clone(),gam,data.cliplimit,data.st,data.c,data.level);
+        }
+        future<Mat> future3;
+        if(hasframe3)
+        {
+            future3 = async(launch::async,frameprocess,frame3.clone(),gam,data.cliplimit,data.st,data.c,data.level);
         }
         Mat result1 = future1.get();
         writer.write(result1);
@@ -751,9 +765,18 @@ int main()
             Mat result2 = future2.get();
             writer.write(result2);
         }
+        if(hasframe3)
+        {
+            Mat result3 = future3.get();
+            writer.write(result3);
+        }
         count++;
         cout <<count<<endl;
         if(!hasframe2)
+        {
+            break;
+        }
+        if(!hasframe3)
         {
             break;
         }
@@ -761,6 +784,7 @@ int main()
     // Releasing the input and output video to complete them
     vid.release();
     writer.release();
+    cout << "Final" <<endl;
 
     // Command for reading the HDR output video and audio.acc and then merge them together
     string command =
