@@ -31,5 +31,6 @@ void Sigmoid_TM(int& st,int& c,Mat& input,Mat& output);
 void WBC(Mat& input,Mat& output);
 void unmask_sharp(int& level,Mat& input,Mat& output);
 void Clahe(int& ClipLimit,Mat& image,Mat& Clahe_out);
+//void Digital_zoom(int& scale,Mat& input,)
 
 #endif // HEADER_H

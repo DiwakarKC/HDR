@@ -71,7 +71,7 @@ int main()
                        "-vn "
                        "-c:a aac "
                        "-b:a 192k "
-                       "audio.aac";
+                       "\"" + input_path.stem().string()+"_audio.aac\"";
 
     system(command_in.c_str());
 
@@ -154,9 +154,11 @@ int main()
     // To restart the video frame reading from 0
     vid.set(CAP_PROP_POS_FRAMES,0);
 
+    // Async t paralled process four frames
     Mat frame1;
     Mat frame2;
     Mat frame3;
+    Mat frame4;
 
     int gam[256];
     for(int i=0; i<256; i++)
@@ -172,6 +174,8 @@ int main()
         }
         bool hasframe2 = vid.read(frame2);
         bool hasframe3 = vid.read(frame3);
+        bool hasframe4 = vid.read(frame4);
+        // Future is used so that the frames to passed in timely order
         future<Mat> future1 = async(launch::async,frameprocess,frame1.clone(),gam,data.cliplimit,data.st,data.c,data.level);
         future<Mat> future2;
         if(hasframe2)
@@ -183,6 +187,12 @@ int main()
         {
             future3 = async(launch::async,frameprocess,frame3.clone(),gam,data.cliplimit,data.st,data.c,data.level);
         }
+        future<Mat> future4;
+        if(hasframe4)
+        {
+            future4 = async(launch::async,frameprocess,frame4.clone(),gam,data.cliplimit,data.st,data.c,data.level);
+        }
+
         Mat result1 = future1.get();
         writer.write(result1);
         if(hasframe2)
@@ -195,6 +205,10 @@ int main()
             Mat result3 = future3.get();
             writer.write(result3);
         }
+        if(hasframe4){
+            Mat result4 = future4.get();
+            writer.write(result4);
+        }
         count++;
         cout <<count<<endl;
         if(!hasframe2)
@@ -202,6 +216,10 @@ int main()
             break;
         }
         if(!hasframe3)
+        {
+            break;
+        }
+        if(!hasframe4)
         {
             break;
         }
@@ -215,7 +233,7 @@ int main()
     string command =
         "ffmpeg -y "
         "-i video/output.mp4 "
-        "-i audio.aac "
+        "-i \"" + input_path.stem().string() + "_audio.aac\" "
         "-c:v copy "
         "-c:a copy "
         "\"" + output_path.string() + "\"";
