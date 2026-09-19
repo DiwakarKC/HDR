@@ -14,3 +14,8 @@ In the above figure, the GUI interface with a slider for each parameter is used 
 
 OPTIMIZATION
 Since each frame is sequentially done. The time for completion for large video files is very long.To decrease the time taken, parallel processing is done. Instead of 1 frame , 3 frames are simultaneously processed to save time. For example,Before Optimization, it took 3 minutes to complete HDR conversion of a 30 sec video. After Optimization it took 1 minute to complete 30 sec. 
+
+Sept 19th 2026
+Added the deploy.bat file that will create a bin folder and add all the dependencies on the bin folder that is required by image_processing.exe file
+Also added the launcher.cpp file that is created to add the bin folder on the environment varaible paths for the imageprocessing.exe file
+Run the Launcher.exe file to run the imageprocessing.exe file
